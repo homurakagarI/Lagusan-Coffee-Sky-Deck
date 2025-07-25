@@ -1,0 +1,152 @@
+/* Zoom Compatibility CSS - For 100% Browser Zoom Support */
+
+/* Ensure all components use relative units for zoom compatibility */
+* {
+  /* Prevent overflow issues at different zoom levels */
+  max-width: 100%;
+}
+
+/* Typography scale using clamp for zoom compatibility */
+h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); }
+h2 { font-size: clamp(1.5rem, 4vw, 2rem); }
+h3 { font-size: clamp(1.25rem, 3.5vw, 1.75rem); }
+h4 { font-size: clamp(1.125rem, 3vw, 1.5rem); }
+h5 { font-size: clamp(1rem, 2.5vw, 1.25rem); }
+h6 { font-size: clamp(0.875rem, 2vw, 1.125rem); }
+
+/* Base text should scale properly */
+p, span, div {
+  font-size: clamp(0.875rem, 2.5vw, 1rem);
+  line-height: 1.6;
+}
+
+/* Button sizing for touch accessibility across zoom levels */
+button, .btn {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  padding: clamp(0.5rem, 2vw, 1rem) clamp(1rem, 3vw, 2rem);
+  font-size: clamp(0.875rem, 2.5vw, 1rem);
+}
+
+/* Input fields should maintain proper sizing */
+input, textarea, select {
+  min-height: 2.75rem;
+  padding: clamp(0.5rem, 2vw, 0.75rem);
+  font-size: clamp(0.875rem, 2.5vw, 1rem);
+}
+
+/* Modal and overlay sizing */
+.modal, .overlay {
+  max-width: min(90vw, 50rem);
+  max-height: min(90vh, 50rem);
+}
+
+/* Grid and flexbox layouts should be responsive */
+.grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: clamp(1rem, 3vw, 2rem);
+}
+
+/* Spacing utilities with relative units */
+.p-1 { padding: 0.25rem; }
+.p-2 { padding: 0.5rem; }
+.p-3 { padding: 0.75rem; }
+.p-4 { padding: 1rem; }
+.p-5 { padding: 1.25rem; }
+
+.m-1 { margin: 0.25rem; }
+.m-2 { margin: 0.5rem; }
+.m-3 { margin: 0.75rem; }
+.m-4 { margin: 1rem; }
+.m-5 { margin: 1.25rem; }
+
+/* Responsive breakpoints using rem units */
+@media (max-width: 48rem) { /* ~768px */
+  .container {
+    padding: 0 1rem;
+  }
+  
+  /* Adjust grid columns for mobile */
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 30rem) { /* ~480px */
+  .container {
+    padding: 0 0.75rem;
+  }
+  
+  /* Smaller spacing on very small screens */
+  .grid {
+    gap: clamp(0.75rem, 2vw, 1rem);
+  }
+}
+
+/* Ensure images scale properly */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Icon sizing that scales with zoom */
+.icon {
+  width: clamp(1rem, 3vw, 1.5rem);
+  height: clamp(1rem, 3vw, 1.5rem);
+}
+
+.icon-lg {
+  width: clamp(1.5rem, 4vw, 2rem);
+  height: clamp(1.5rem, 4vw, 2rem);
+}
+
+.icon-xl {
+  width: clamp(2rem, 5vw, 3rem);
+  height: clamp(2rem, 5vw, 3rem);
+}
+
+/* Ensure focus indicators are visible at all zoom levels */
+:focus {
+  outline: 0.125rem solid #0066cc;
+  outline-offset: 0.125rem;
+}
+
+/* Scrollbar styling for consistency */
+::-webkit-scrollbar {
+  width: clamp(0.5rem, 1.5vw, 0.75rem);
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 0.375rem;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Prevent text from becoming too small or too large */
+.text-xs { font-size: clamp(0.75rem, 2vw, 0.875rem); }
+.text-sm { font-size: clamp(0.875rem, 2.5vw, 1rem); }
+.text-base { font-size: clamp(1rem, 3vw, 1.125rem); }
+.text-lg { font-size: clamp(1.125rem, 3.5vw, 1.25rem); }
+.text-xl { font-size: clamp(1.25rem, 4vw, 1.5rem); }
+.text-2xl { font-size: clamp(1.5rem, 5vw, 2rem); }
+.text-3xl { font-size: clamp(2rem, 6vw, 3rem); }
+
+/* Utility classes for zoom-safe spacing */
+.space-y-1 > * + * { margin-top: 0.25rem; }
+.space-y-2 > * + * { margin-top: 0.5rem; }
+.space-y-3 > * + * { margin-top: 0.75rem; }
+.space-y-4 > * + * { margin-top: 1rem; }
+.space-y-5 > * + * { margin-top: 1.25rem; }
+
+.space-x-1 > * + * { margin-left: 0.25rem; }
+.space-x-2 > * + * { margin-left: 0.5rem; }
+.space-x-3 > * + * { margin-left: 0.75rem; }
+.space-x-4 > * + * { margin-left: 1rem; }
+.space-x-5 > * + * { margin-left: 1.25rem; }

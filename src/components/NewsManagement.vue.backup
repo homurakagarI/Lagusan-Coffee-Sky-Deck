@@ -1,0 +1,829 @@
+<template>
+  <div class="news-management">
+    <div class="section-header">
+      <h2>News & Updates Management</h2>
+      <div class="header-actions">
+        <div class="status-filters">
+          <button 
+            @click="currentFilter = 'all'" 
+            :class="{ active: currentFilter === 'all' }"
+            class="filter-btn"
+          >
+            All ({{ getCounts().all }})
+          </button>
+          <button 
+            @click="currentFilter = 'published'" 
+            :class="{ active: currentFilter === 'published' }"
+            class="filter-btn published"
+          >
+            Published ({{ getCounts().published }}/7)
+          </button>
+          <button 
+            @click="currentFilter = 'draft'" 
+            :class="{ active: currentFilter === 'draft' }"
+            class="filter-btn draft"
+          >
+            Drafts ({{ getCounts().draft }})
+          </button>
+          <button 
+            @click="currentFilter = 'archived'" 
+            :class="{ active: currentFilter === 'archived' }"
+            class="filter-btn archived"
+          >
+            Archived ({{ getCounts().archived }})
+          </button>
+        </div>
+        <button @click="loadNews" class="refresh-btn">Refresh</button>
+        <button 
+          @click="openNewsEditor()" 
+          class="add-btn"
+          :disabled="!canAddNews"
+          :title="canAddNews ? 'Add News Update' : 'Maximum 7 published posts reached. Archive some posts first.'"
+        >
+          Add News Update
+        </button>
+      </div>
+    </div>
+    
+    <div v-if="!canAddNews" class="limit-warning">
+      ⚠️ You have reached the maximum of 7 published news posts. 
+      <button @click="autoArchiveOldest" class="auto-archive-btn">
+        Auto-archive oldest post
+      </button>
+      or manually archive some posts to add new ones.
+    </div>
+    
+    <div v-if="loading" class="loading">
+      <div class="loading-spinner"></div>
+      <p>Loading news...</p>
+    </div>
+    
+    <div v-else-if="filteredNews.length === 0" class="empty-state">
+      <div class="empty-icon">📰</div>
+      <h3>No {{ currentFilter === 'all' ? '' : currentFilter }} news found</h3>
+      <p v-if="currentFilter === 'all'">Start by adding your first news update.</p>
+      <p v-else>No news updates with status "{{ currentFilter }}" found.</p>
+    </div>
+    
+    <div v-else class="news-list">
+      <div v-for="news in filteredNews" :key="news.id" class="news-item">
+        <div class="news-image">
+          <img v-if="news.imageUrl" :src="news.imageUrl" :alt="news.title" />
+          <div v-else class="no-image">📰</div>
+        </div>
+        <div class="news-details">
+          <div class="news-meta">
+            <span class="news-category">{{ news.category }}</span>
+            <span v-if="news.featured" class="featured-badge">Featured</span>
+            <span class="news-status" :class="news.status">{{ getStatusLabel(news.status) }}</span>
+          </div>
+          <h3>{{ news.title }}</h3>
+          <p class="news-excerpt">{{ truncateText(news.content, 100) }}</p>
+          <div class="news-dates">
+            <p class="news-date">Created: {{ formatDate(news.timestamp || news.createdAt) }}</p>
+            <p v-if="news.updatedAt" class="news-date">Updated: {{ formatDate(news.updatedAt) }}</p>
+          </div>
+        </div>
+        <div class="news-actions">
+          <div class="status-actions">
+            <select 
+              :value="news.status || 'draft'" 
+              @change="(event) => updateNewsStatus(news.id, (event.target as HTMLSelectElement).value)"
+              class="status-select"
+              :disabled="news.status === 'published' && getCounts().published >= 7"
+            >
+              <option value="draft">Draft</option>
+              <option value="published" :disabled="news.status !== 'published' && getCounts().published >= 7">Published</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+          <div class="action-buttons">
+            <button @click="openNewsEditor(news)" class="edit-btn">Edit</button>
+            <button @click="deleteNews(news.id)" class="delete-btn">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- News Editor Modal -->
+    <NewsEditor 
+      v-if="showEditor"
+      :news="selectedNews"
+      @close="closeNewsEditor"
+      @save="handleNewsSave"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, computed } from 'vue'
+import { 
+  getNewsUpdates, 
+  deleteNewsUpdate, 
+  updateNewsStatus as updateStatus,
+  archiveOldestPublishedNews
+} from '../firebase/services'
+import NewsEditor from './NewsEditor.vue'
+
+const loading = ref(true)
+const newsList = ref<any[]>([])
+const showEditor = ref(false)
+const selectedNews = ref<any>(null)
+const currentFilter = ref('all')
+
+const filteredNews = computed(() => {
+  if (currentFilter.value === 'all') {
+    return newsList.value
+  }
+  return newsList.value.filter(news => (news.status || 'draft') === currentFilter.value)
+})
+
+const getCounts = () => {
+  const published = newsList.value.filter(n => n.status === 'published').length
+  const draft = newsList.value.filter(n => (n.status || 'draft') === 'draft').length
+  const archived = newsList.value.filter(n => n.status === 'archived').length
+  const all = newsList.value.length
+  
+  return { published, draft, archived, all }
+}
+
+const canAddNews = computed(() => {
+  return getCounts().published < 7
+})
+
+const loadNews = async () => {
+  loading.value = true
+  try {
+    console.log('Loading news with current filter:', currentFilter.value)
+    const result = await getNewsUpdates() // Load all, filter in frontend
+    if (result.success && result.news) {
+      newsList.value = result.news
+      console.log('Loaded news list:', newsList.value.length, 'items')
+    } else {
+      console.error('Failed to load news:', result.error)
+      newsList.value = []
+    }
+  } catch (error) {
+    console.error('Error loading news:', error)
+    newsList.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+const updateNewsStatus = async (newsId: string, newStatus: string) => {
+  try {
+    console.log(`Updating news ${newsId} status to ${newStatus}`)
+    const result = await updateStatus(newsId, newStatus)
+    if (result.success) {
+      // Update local state
+      const newsIndex = newsList.value.findIndex(n => n.id === newsId)
+      if (newsIndex !== -1) {
+        newsList.value[newsIndex].status = newStatus
+      }
+      console.log('News status updated successfully')
+    } else {
+      console.error('Failed to update news status:', result.error)
+      alert(result.error || 'Failed to update news status')
+    }
+  } catch (error) {
+    console.error('Error updating news status:', error)
+    alert('Error updating news status')
+  }
+}
+
+const autoArchiveOldest = async () => {
+  try {
+    const result = await archiveOldestPublishedNews()
+    if (result.success) {
+      alert(`Archived: "${result.archivedTitle}"`)
+      loadNews() // Refresh the list
+    } else {
+      alert(result.error || 'Failed to archive oldest news')
+    }
+  } catch (error) {
+    console.error('Error auto-archiving:', error)
+    alert('Error archiving oldest news')
+  }
+}
+
+const getStatusLabel = (status: string) => {
+  switch (status) {
+    case 'published': return '🟢 Published'
+    case 'draft': return '🟡 Draft'
+    case 'archived': return '📦 Archived'
+    default: return '🟡 Draft'
+  }
+}
+
+const openNewsEditor = (news: any = null) => {
+  selectedNews.value = news
+  showEditor.value = true
+}
+
+const closeNewsEditor = () => {
+  showEditor.value = false
+  selectedNews.value = null
+}
+
+const handleNewsSave = () => {
+  closeNewsEditor()
+  loadNews()
+}
+
+const deleteNews = async (newsId: string) => {
+  if (confirm('Are you sure you want to delete this news update? This action cannot be undone.')) {
+    try {
+      const result = await deleteNewsUpdate(newsId)
+      if (result.success) {
+        loadNews()
+      } else {
+        alert('Failed to delete news update')
+      }
+    } catch (error) {
+      console.error('Error deleting news:', error)
+      alert('Error deleting news update')
+    }
+  }
+}
+
+const truncateText = (text: string, length: number) => {
+  if (!text) return ''
+  return text.length > length ? text.substring(0, length) + '...' : text
+}
+
+const formatDate = (timestamp: any) => {
+  if (!timestamp) return 'Unknown'
+  try {
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  } catch (error) {
+    return 'Invalid Date'
+  }
+}
+
+onMounted(() => {
+  loadNews()
+})
+</script>
+  if (!text) return ''
+  if (text.length <= length) return text
+  return text.substring(0, length) + '...'
+}
+
+const formatDate = (timestamp: any) => {
+  if (!timestamp) return ''
+  try {
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })
+  } catch (error) {
+    return ''
+  }
+}
+
+onMounted(() => {
+  loadNews()
+})
+</script>
+
+<style scoped>
+.news-management {
+  background: white;
+  border-radius: 10px;
+  padding: 2rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #eee;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.status-filters {
+  display: flex;
+  gap: 0.5rem;
+  background: #f8f9fa;
+  padding: 0.3rem;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.filter-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  background: transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.filter-btn:hover {
+  background: rgba(139, 69, 19, 0.1);
+}
+
+.filter-btn.active {
+  background: #8B4513;
+  color: white;
+}
+
+.filter-btn.published.active {
+  background: #28a745;
+}
+
+.filter-btn.draft.active {
+  background: #ffc107;
+  color: #856404;
+}
+
+.filter-btn.archived.active {
+  background: #6c757d;
+}
+
+.refresh-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.refresh-btn:hover {
+  background: #218838;
+}
+
+.add-btn {
+  background: #8B4513;
+  color: white;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.add-btn:hover:not(:disabled) {
+  background: #654321;
+}
+
+.add-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.limit-warning {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  color: #856404;
+  padding: 1rem;
+  border-radius: 5px;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.auto-archive-btn {
+  background: #ffc107;
+  color: #856404;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.auto-archive-btn:hover {
+  background: #e0a800;
+}
+
+.loading {
+  text-align: center;
+  padding: 3rem 0;
+}
+
+.loading-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #8B4513;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #666;
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+  margin: 1rem 0;
+  color: #333;
+}
+
+.news-list {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.news-item {
+  display: grid;
+  grid-template-columns: 100px 1fr auto;
+  gap: 1rem;
+  padding: 1.5rem;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  transition: box-shadow 0.3s ease;
+}
+
+.news-item:hover {
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.news-image {
+  width: 100px;
+  height: 80px;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.news-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.no-image {
+  width: 100%;
+  height: 100%;
+  background: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: #666;
+  border: 2px dashed #dee2e6;
+  border-radius: 5px;
+}
+
+.news-details h3 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.news-meta {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.news-category {
+  background: #e9ecef;
+  color: #495057;
+  padding: 0.3rem 0.8rem;
+  border-radius: 15px;
+  font-size: 0.8rem;
+}
+
+.featured-badge {
+  background: #ffc107;
+  color: #856404;
+  padding: 0.3rem 0.8rem;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.news-status {
+  padding: 0.3rem 0.8rem;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.news-status.published {
+  background: #d4edda;
+  color: #155724;
+}
+
+.news-status.draft {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.news-status.archived {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.news-excerpt {
+  color: #666;
+  margin: 0.5rem 0;
+  line-height: 1.5;
+}
+
+.news-dates {
+  margin-top: 0.5rem;
+}
+
+.news-date {
+  font-size: 0.9rem;
+  color: #888;
+  margin: 0.2rem 0;
+}
+
+.news-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 150px;
+}
+
+.status-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.status-select {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background: white;
+  font-size: 0.9rem;
+}
+
+.status-select:disabled {
+  background: #f8f9fa;
+  color: #6c757d;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.edit-btn, .delete-btn {
+  flex: 1;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.edit-btn {
+  background: #007bff;
+  color: white;
+}
+
+.edit-btn:hover {
+  background: #0056b3;
+}
+
+.delete-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.delete-btn:hover {
+  background: #c82333;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+  .section-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .header-actions {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .status-filters {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  .filter-btn {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+  }
+  
+  .news-item {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .news-actions {
+    flex-direction: row;
+    justify-content: space-between;
+    min-width: auto;
+  }
+  
+  .status-actions {
+    flex: 1;
+    margin-right: 1rem;
+  }
+  
+  .action-buttons {
+    flex-shrink: 0;
+  }
+}
+</style>
+  background: white;
+  border-radius: 10px;
+  padding: 2rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #eee;
+}
+
+.add-btn {
+  background: #8B4513;
+  color: white;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.loading {
+  text-align: center;
+  padding: 3rem 0;
+}
+
+.loading-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #8B4513;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+.news-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.news-item {
+  display: grid;
+  grid-template-columns: 100px 1fr auto;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  align-items: center;
+}
+
+.news-image {
+  width: 80px;
+  height: 80px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.news-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.no-image {
+  width: 100%;
+  height: 100%;
+  background: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.news-meta {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.news-category {
+  background: #e9ecef;
+  color: #495057;
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  text-transform: capitalize;
+}
+
+.featured-badge {
+  background: #ffc107;
+  color: #212529;
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.news-details h3 {
+  margin: 0.5rem 0;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.news-excerpt {
+  color: #666;
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.news-date {
+  color: #999;
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.news-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-direction: column;
+}
+
+.edit-btn, .delete-btn {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.edit-btn {
+  background: #007bff;
+  color: white;
+}
+
+.delete-btn {
+  background: #dc3545;
+  color: white;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+</style>

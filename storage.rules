@@ -1,0 +1,10 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // TEMPORARY: Allow all read/write for development
+    // TODO: Implement proper authentication before production
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}

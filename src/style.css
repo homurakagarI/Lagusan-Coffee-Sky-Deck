@@ -1,0 +1,148 @@
+/* Global styles for Lagusan Coffee Sky Deck - 100% Zoom Compatible */
+:root {
+  --primary-color: #8B4513;
+  --secondary-color: #D4AF37;
+  --accent-color: #F4D03F;
+  --text-dark: #333;
+  --text-light: #666;
+  --text-white: #fff;
+  --bg-light: #f8f9fa;
+  --shadow: 0 0.3125rem 0.9375rem rgba(0, 0, 0, 0.1);
+  --shadow-hover: 0 0.625rem 1.875rem rgba(0, 0, 0, 0.15);
+  --border-radius: 0.9375rem;
+  --transition: all 0.3s ease;
+  
+  /* Responsive typography scale */
+  --font-size-xs: clamp(0.75rem, 2vw, 0.875rem);
+  --font-size-sm: clamp(0.875rem, 2.5vw, 1rem);
+  --font-size-base: clamp(1rem, 3vw, 1.125rem);
+  --font-size-lg: clamp(1.125rem, 3.5vw, 1.25rem);
+  --font-size-xl: clamp(1.25rem, 4vw, 1.5rem);
+  --font-size-2xl: clamp(1.5rem, 5vw, 2rem);
+  --font-size-3xl: clamp(2rem, 6vw, 3rem);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: 100%; /* Always use 100% as base for zoom compatibility */
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.6;
+  color: var(--text-dark);
+  overflow-x: hidden;
+  font-size: var(--font-size-base);
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Utility classes */
+.container {
+  max-width: 75rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+  width: 100%;
+}
+
+.btn {
+  display: inline-block;
+  padding: 1rem 2rem;
+  background: var(--primary-color);
+  color: var(--text-white);
+  text-decoration: none;
+  border-radius: 3.125rem;
+  font-weight: 600;
+  text-align: center;
+  transition: var(--transition);
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  min-height: 3rem;
+  min-width: fit-content;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn:hover {
+  background: var(--secondary-color);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+.btn-primary {
+  background: var(--secondary-color);
+  color: var(--text-dark);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text-white);
+  border: 2px solid var(--text-white);
+}
+
+.btn-secondary:hover {
+  background: var(--text-white);
+  color: var(--text-dark);
+}
+
+/* Responsive utilities */
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+  
+  .container {
+    padding: 0 0.5rem;
+  }
+}
+
+/* Loading animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary-color);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--secondary-color);
+}
+
+/* Focus styles for accessibility */
+*:focus {
+  outline: 2px solid var(--secondary-color);
+  outline-offset: 2px;
+}
+
+/* Selection styles */
+::selection {
+  background: var(--secondary-color);
+  color: var(--text-dark);
+}
