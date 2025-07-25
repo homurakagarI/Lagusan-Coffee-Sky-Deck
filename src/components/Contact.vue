@@ -1,123 +1,79 @@
 <template>
   <section id="contact" class="contact">
-    <div class="container">
       <h2 class="section-title">Visit Our Sky Deck</h2>
       <p class="section-subtitle">Come experience coffee at new heights</p>
       
-      <div class="contact-content">
-        <div class="contact-info">
-          <div class="info-card">
-            <div class="info-icon">📍</div>
-            <h3>Location</h3>
-            <p>Sky Tower, 42nd Floor<br>Downtown Business District<br>City Center</p>
-          </div>
-          
-          <div class="info-card">
-            <div class="info-icon">🕒</div>
-            <h3>Hours</h3>
-            <div class="hours-list">
-              <div class="hours-item">
-                <span>Monday - Friday</span>
-                <span>6:00 AM - 10:00 PM</span>
-              </div>
-              <div class="hours-item">
-                <span>Saturday</span>
-                <span>7:00 AM - 11:00 PM</span>
-              </div>
-              <div class="hours-item">
-                <span>Sunday</span>
-                <span>7:00 AM - 9:00 PM</span>
-              </div>
+      <div v-if="loading" class="loading-spinner">
+        <div class="spinner"></div>
+      </div>
+      
+      <div v-else class="contact-info">
+        <div class="info-card">
+          <div class="info-icon">📍</div>
+          <h3>Location</h3>
+          <p v-if="contactInfo">{{ contactInfo.address || 'Location information coming soon' }}</p>
+          <p v-else>Location information coming soon</p>
+        </div>
+        
+        <div class="info-card">
+          <div class="info-icon">🕒</div>
+          <h3>Hours</h3>
+          <div class="hours-list" v-if="contactInfo">
+            <div class="hours-item" v-if="contactInfo.openingTime && contactInfo.closingTime">
+              <span>Opening Hours</span>
+              <span>{{ contactInfo.openingTime }} - {{ contactInfo.closingTime }}</span>
+            </div>
+            <div class="hours-item" v-else>
+              <span>Hours information coming soon</span>
             </div>
           </div>
-          
-          <div class="info-card">
-            <div class="info-icon">📞</div>
-            <h3>Contact</h3>
-            <p>Phone: (555) 123-4567<br>Email: hello@lagusanskydeck.com<br>Follow @LagusanSkyDeck</p>
+          <div class="hours-list" v-else>
+            <div class="hours-item">
+              <span>Hours information coming soon</span>
+            </div>
           </div>
         </div>
         
-        <div class="contact-form">
-          <h3>Get in Touch</h3>
-          <form @submit.prevent="submitForm">
-            <div class="form-group">
-              <input 
-                v-model="form.name" 
-                type="text" 
-                placeholder="Your Name" 
-                required
-                class="form-input"
-              >
-            </div>
-            <div class="form-group">
-              <input 
-                v-model="form.email" 
-                type="email" 
-                placeholder="Your Email" 
-                required
-                class="form-input"
-              >
-            </div>
-            <div class="form-group">
-              <input 
-                v-model="form.phone" 
-                type="tel" 
-                placeholder="Phone Number" 
-                class="form-input"
-              >
-            </div>
-            <div class="form-group">
-              <textarea 
-                v-model="form.message" 
-                placeholder="Your Message" 
-                rows="5" 
-                required
-                class="form-textarea"
-              ></textarea>
-            </div>
-            <button type="submit" class="submit-btn" :disabled="isSubmitting">
-              {{ isSubmitting ? 'Sending...' : 'Send Message' }}
-            </button>
-          </form>
+        <div class="info-card">
+          <div class="info-icon">📞</div>
+          <h3>Contact</h3>
+          <p v-if="contactInfo">
+            Phone: {{ contactInfo.phone || 'Coming soon' }}<br>
+            Email: {{ contactInfo.email || 'Coming soon' }}<br>
+            <span v-if="contactInfo.socialMedia">
+              Follow: 
+              <a v-if="contactInfo.socialMedia.facebook" :href="contactInfo.socialMedia.facebook" target="_blank">Facebook</a>
+              <span v-if="contactInfo.socialMedia.facebook && (contactInfo.socialMedia.instagram || contactInfo.socialMedia.twitter)">, </span>
+              <a v-if="contactInfo.socialMedia.instagram" :href="contactInfo.socialMedia.instagram" target="_blank">Instagram</a>
+              <span v-if="contactInfo.socialMedia.instagram && contactInfo.socialMedia.twitter">, </span>
+              <a v-if="contactInfo.socialMedia.twitter" :href="contactInfo.socialMedia.twitter" target="_blank">Twitter</a>
+            </span>
+          </p>
+          <p v-else>Contact information coming soon</p>
         </div>
-      </div>
-    </div>
+      </div>  
   </section>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import { submitContactForm } from '../firebase/services'
+import { ref, onMounted } from 'vue'
+import { getContactInfo } from '../firebase/services'
 
-const isSubmitting = ref(false)
+const contactInfo = ref<any>(null)
+const loading = ref(true)
 
-const form = reactive({
-  name: '',
-  email: '',
-  phone: '',
-  message: ''
-})
-
-const submitForm = async () => {
-  isSubmitting.value = true
-  
+onMounted(async () => {
   try {
-    const result = await submitContactForm(form)
-    
-    if (result.success) {
-      alert('Thank you for your message! We\'ll get back to you soon.')
-      Object.assign(form, { name: '', email: '', phone: '', message: '' })
-    } else {
-      alert('Sorry, there was an error sending your message. Please try again.')
+    const result = await getContactInfo()
+    if (result.success && result.contactInfo) {
+      contactInfo.value = result.contactInfo
     }
   } catch (error) {
-    console.error('Error submitting form:', error)
-    alert('Sorry, there was an error sending your message. Please try again.')
+    console.error('Error fetching contact info:', error)
   } finally {
-    isSubmitting.value = false
+    loading.value = false
   }
-}
+})
 </script>
 
 <style scoped>
@@ -271,6 +227,28 @@ const submitForm = async () => {
   cursor: not-allowed;
 }
 
+.loading-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  width: 100%;
+}
+
+.spinner {
+  border: 4px solid rgba(139, 69, 19, 0.1);
+  border-radius: 50%;
+  border-top: 4px solid #8B4513;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 /* Mobile styles */
 @media (max-width: 768px) {
   .contact {
@@ -324,3 +302,9 @@ const submitForm = async () => {
   }
 }
 </style>
+
+
+  
+
+
+

@@ -603,24 +603,29 @@ onMounted(() => {
   left: 0;
   width: 100vw;
   height: 100vh;
+  min-height: 100vh;
+  min-height: 100dvh; /* Dynamic viewport height for mobile */
   background: rgba(0, 0, 0, 0.7);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
-  backdrop-filter: blur(5px);
+  backdrop-filter: blur(0.3125rem);
+  padding: 1rem;
+  box-sizing: border-box;
 }
 
 .auth-modal {
   background: white;
   padding: 0;
-  border-radius: 15px;
-  max-width: 500px;
+  border-radius: 0.9375rem;
+  max-width: 31.25rem;
   width: 90%;
-  max-height: 80vh;
+  max-height: min(80vh, 80dvh);
   overflow-y: auto;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1.25rem 2.5rem rgba(0, 0, 0, 0.3);
   animation: modalSlideIn 0.3s ease-out;
+  position: relative;
 }
 
 @keyframes modalSlideIn {
@@ -764,10 +769,13 @@ onMounted(() => {
   color: #333;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 48rem) {
   .auth-modal {
-    width: 95%;
-    margin: 1rem;
+    width: calc(100% - 2rem);
+    max-width: calc(100vw - 2rem);
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    /* Don't add margin - keep flexbox centering */
   }
   
   .auth-content {

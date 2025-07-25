@@ -13,6 +13,13 @@
     <div class="admin-content">
       <nav class="admin-nav">
         <button 
+          @click="activeSection = 'customers'" 
+          :class="{ active: activeSection === 'customers' }"
+          class="nav-btn"
+        >
+          Customer Management
+        </button>
+        <button 
           @click="activeSection = 'content'" 
           :class="{ active: activeSection === 'content' }"
           class="nav-btn"
@@ -50,6 +57,7 @@
       </nav>
       
       <div class="admin-main">
+        <CustomerManagement v-if="activeSection === 'customers'" />
         <ContentManagement v-if="activeSection === 'content'" />
         <MenuManagement v-if="activeSection === 'menu'" />
         <ContactManagement v-if="activeSection === 'contact'" />
@@ -62,6 +70,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import CustomerManagement from './CustomerManagement.vue'
 import ContentManagement from './ContentManagement.vue'
 import MenuManagement from './MenuManagement.vue'
 import ContactManagement from './ContactManagement.vue'
@@ -75,7 +84,7 @@ const emit = defineEmits<{
 }>()
 
 const { logout } = useAuth()
-const activeSection = ref('content') // Start with content management
+const activeSection = ref('customers') // Start with customer management
 
 const minimizeDashboard = () => {
   emit('close')

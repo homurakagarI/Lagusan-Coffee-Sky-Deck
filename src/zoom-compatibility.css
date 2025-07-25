@@ -36,9 +36,37 @@ input, textarea, select {
 }
 
 /* Modal and overlay sizing */
-.modal, .overlay {
+.modal, .overlay, .auth-overlay, .modal-overlay {
   max-width: min(90vw, 50rem);
-  max-height: min(90vh, 50rem);
+  max-height: min(90vh, 90dvh, 50rem);
+  /* Ensure proper mobile viewport handling */
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Global modal centering fix for mobile */
+.modal, .auth-modal, [class*="modal"] {
+  /* Ensure modals are always centered */
+  margin: auto !important;
+}
+
+/* Mobile modal fixes */
+@media (max-width: 48rem) {
+  .modal, .overlay, .auth-overlay, .modal-overlay {
+    /* Prevent modals from being pushed off-screen */
+    align-items: center !important;
+    justify-content: center !important;
+    padding: clamp(0.5rem, 2vw, 1rem) !important;
+  }
+  
+  .modal, .auth-modal, [class*="modal"]:not(.modal-overlay) {
+    /* Override any margin that might break centering */
+    margin: auto !important;
+    max-width: calc(100vw - 2rem) !important;
+    max-height: calc(100vh - 2rem) !important;
+    max-height: calc(100dvh - 2rem) !important;
+    width: 100% !important;
+  }
 }
 
 /* Grid and flexbox layouts should be responsive */

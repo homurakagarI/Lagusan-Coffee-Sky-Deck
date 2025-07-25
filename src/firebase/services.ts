@@ -15,7 +15,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  sendEmailVerification
 } from 'firebase/auth';
 import { 
   ref as storageRef, 
@@ -175,7 +176,32 @@ export const getUserRole = async (userId: string) => {
 export const loginCustomer = async (email: string, password: string) => {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    return { success: true, user: userCredential.user };
+    const user = userCredential.user;
+    
+    // Check if email is verified
+    if (!user.emailVerified) {
+      // Sign out the user since email is not verified
+      await signOut(auth);
+      return { 
+        success: false, 
+        error: 'Please verify your email address before logging in. Check your email for a verification link.',
+        needsVerification: true 
+      };
+    }
+    
+    // Check and update verification status in Firestore
+    const customerDoc = await getDoc(doc(db, 'customers', user.uid));
+    if (customerDoc.exists()) {
+      const customerData = customerDoc.data();
+      if (!customerData.emailVerified) {
+        await updateDoc(doc(db, 'customers', user.uid), {
+          emailVerified: true,
+          isActive: true
+        });
+      }
+    }
+    
+    return { success: true, user: user };
   } catch (error) {
     console.error('Error logging in customer: ', error);
     return { success: false, error: error };
@@ -190,17 +216,25 @@ export const registerCustomer = async (email: string, password: string, customer
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
-    // Save customer profile data to Firestore
+    // Send email verification
+    await sendEmailVerification(user);
+    
+    // Save customer profile data to Firestore with emailVerified status
     await setDoc(doc(db, 'customers', user.uid), {
       fullName: customerData.fullName,
       email: email,
       phoneNumber: customerData.phoneNumber || '',
       createdAt: new Date(),
-      isActive: true,
+      isActive: false, // Account inactive until email is verified
+      emailVerified: false,
       role: 'customer'
     });
     
-    return { success: true, user: user };
+    return { 
+      success: true, 
+      user: user,
+      message: 'Registration successful! Please check your email to verify your account before logging in.'
+    };
   } catch (error) {
     console.error('Error registering customer: ', error);
     return { success: false, error: error };
@@ -213,6 +247,59 @@ export const logoutCustomer = async () => {
     return { success: true };
   } catch (error) {
     console.error('Error logging out customer: ', error);
+    return { success: false, error: error };
+  }
+};
+
+// Email verification functions
+export const resendVerificationEmail = async () => {
+  try {
+    const user = auth.currentUser;
+    if (user && !user.emailVerified) {
+      await sendEmailVerification(user);
+      return { 
+        success: true, 
+        message: 'Verification email sent! Please check your email.' 
+      };
+    } else if (user && user.emailVerified) {
+      return { 
+        success: false, 
+        error: 'Email is already verified.' 
+      };
+    } else {
+      return { 
+        success: false, 
+        error: 'No user is currently logged in.' 
+      };
+    }
+  } catch (error) {
+    console.error('Error sending verification email: ', error);
+    return { success: false, error: error };
+  }
+};
+
+export const checkEmailVerificationStatus = async (userId: string) => {
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      // Reload user to get latest verification status
+      await user.reload();
+      
+      if (user.emailVerified) {
+        // Update Firestore to reflect verification
+        await updateDoc(doc(db, 'customers', userId), {
+          emailVerified: true,
+          isActive: true
+        });
+        
+        return { success: true, verified: true };
+      } else {
+        return { success: true, verified: false };
+      }
+    }
+    return { success: false, error: 'No user found' };
+  } catch (error) {
+    console.error('Error checking verification status: ', error);
     return { success: false, error: error };
   }
 };

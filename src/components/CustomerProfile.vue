@@ -911,4 +911,171 @@ const restorePreOrderModal = () => {
     margin-top: 0.5rem;
   }
 }
+
+/* Custom Scrollbar Styles */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #8B4513 #f1f1f1;
+}
+
+*::-webkit-scrollbar {
+  width: clamp(6px, 1.5vw, 12px);
+  height: clamp(6px, 1.5vw, 12px);
+}
+
+*::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #8B4513, #A0522D);
+  border-radius: 10px;
+  border: 1px solid #f1f1f1;
+  transition: all 0.3s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(45deg, #654321, #8B4513);
+  box-shadow: 0 2px 8px rgba(139, 69, 19, 0.3);
+}
+
+*::-webkit-scrollbar-corner {
+  background: #f1f1f1;
+}
+
+/* Enhanced Modal Scrolling */
+.profile-modal {
+  overflow-y: auto;
+  max-height: 90vh;
+  max-height: 90dvh;
+  scrollbar-width: thin;
+  scrollbar-color: #8B4513 #f1f1f1;
+}
+
+.profile-modal::-webkit-scrollbar {
+  width: 8px;
+}
+
+.profile-modal::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.profile-modal::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #8B4513, #A0522D);
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.profile-modal::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(45deg, #654321, #8B4513);
+  box-shadow: 0 2px 8px rgba(139, 69, 19, 0.3);
+}
+
+/* Profile Content Scrolling */
+.profile-content {
+  overflow-y: auto;
+  max-height: 70vh;
+  max-height: 70dvh;
+  padding-right: 0.5rem;
+}
+
+.profile-section,
+.preorder-section {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #8B4513 #f1f1f1;
+}
+
+.profile-section::-webkit-scrollbar,
+.preorder-section::-webkit-scrollbar {
+  width: 6px;
+}
+
+.profile-section::-webkit-scrollbar-track,
+.preorder-section::-webkit-scrollbar-track {
+  background: #f8f9fa;
+  border-radius: 3px;
+}
+
+.profile-section::-webkit-scrollbar-thumb,
+.preorder-section::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #8B4513, #A0522D);
+  border-radius: 3px;
+  transition: all 0.3s ease;
+}
+
+.profile-section::-webkit-scrollbar-thumb:hover,
+.preorder-section::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(45deg, #654321, #8B4513);
+}
+
+/* Responsive Scrollbar Adjustments */
+@media (max-width: 768px) {
+  .profile-modal {
+    max-height: 95vh;
+    max-height: 95dvh;
+  }
+  
+  .profile-content {
+    max-height: 75vh;
+    max-height: 75dvh;
+  }
+  
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .profile-modal::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .profile-section::-webkit-scrollbar,
+  .preorder-section::-webkit-scrollbar {
+    width: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .profile-modal {
+    max-height: 98vh;
+    max-height: 98dvh;
+  }
+  
+  .profile-content {
+    max-height: 80vh;
+    max-height: 80dvh;
+    padding-right: 0.25rem;
+  }
+  
+  *::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+}
+
+/* Touch Device Scrolling Optimization */
+@media (hover: none) and (pointer: coarse) {
+  .profile-modal,
+  .profile-content,
+  .profile-section,
+  .preorder-section {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+}
+
+/* High DPI Display Optimization */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .profile-modal::-webkit-scrollbar {
+    width: 6px;
+  }
+}
 </style>

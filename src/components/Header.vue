@@ -54,16 +54,24 @@
               Login / Register
             </button>
             <button 
-              v-else-if="customerAuthState.isAuthenticated"
+              v-else-if="customerAuthState.needsEmailVerification && !allowBrowsingWithoutVerification && !authState.isAuthenticated"
+              @click="closeMenu()" 
+              class="auth-btn verification-needed"
+            >
+              Verify Email
+            </button>
+            <button 
+              v-else-if="customerAuthState.isAuthenticated && (customerAuthState.isEmailVerified || allowBrowsingWithoutVerification)"
               @click="showUserDashboard = true; closeMenu()" 
               class="auth-btn logged-in"
+              :class="{ 'limited-access': !customerAuthState.isEmailVerified }"
             >
-              Dashboard
+              {{ customerAuthState.isEmailVerified ? 'Dashboard' : 'Dashboard (Limited)' }}
             </button>
             <button 
               v-else-if="authState.isAuthenticated"
               @click="showAdminDashboard = true; closeMenu()" 
-              class="auth-btn logged-in admin"
+              class="auth-btn logged-in admin" 
             >
               Admin Dashboard
             </button>
@@ -79,9 +87,16 @@
       @success="onAuthSuccess"
     />
     
+    <!-- Email Verification Modal -->
+    <EmailVerification 
+      v-if="customerAuthState.needsEmailVerification && !customerAuthState.isEmailVerified && !allowBrowsingWithoutVerification && !authState.isAuthenticated"
+      @continueBrowsing="handleContinueBrowsing"
+      @dismiss="handleDismissVerification"
+    />
+    
     <!-- User Dashboard -->
     <UserDashboard 
-      v-if="showUserDashboard && customerAuthState.isAuthenticated"
+      v-if="showUserDashboard && customerAuthState.isAuthenticated && (customerAuthState.isEmailVerified || allowBrowsingWithoutVerification)"
       @close="handleUserDashboardClose"
     />
     
@@ -100,6 +115,7 @@ import { useCustomerAuth } from '../stores/customer-auth'
 import AdminDashboard from './AdminDashboard.vue'
 import CustomerAuth from './CustomerAuth.vue'
 import UserDashboard from './UserDashboard.vue'
+import EmailVerification from './EmailVerification.vue'
 
 const { authState } = useAuth()
 const { customerAuthState } = useCustomerAuth()
@@ -108,6 +124,7 @@ const isMenuOpen = ref(false)
 const showAdminDashboard = ref(false)
 const showCustomerAuthModal = ref(false)
 const showUserDashboard = ref(false)
+const allowBrowsingWithoutVerification = ref(false)
 
 const toggleMenu = () => {
   isMenuOpen.value = !isMenuOpen.value
@@ -150,6 +167,14 @@ const onAuthSuccess = () => {
 const handleUserDashboardClose = () => {
   console.log('Header: User dashboard close event received') // Debug log
   showUserDashboard.value = false
+}
+
+const handleContinueBrowsing = () => {
+  allowBrowsingWithoutVerification.value = true
+}
+
+const handleDismissVerification = () => {
+  allowBrowsingWithoutVerification.value = true
 }
 
 const handleAdminDashboardClose = () => {
@@ -195,9 +220,9 @@ const handleAdminDashboardClose = () => {
 
 .logo-frame {
   position: relative;
-  width: 3.125rem;
-  height: 3.125rem;
-  border-radius: 50%;
+  width: 3.75rem;  /* Increased from 3.125rem */
+  height: 3.75rem;  /* Increased from 3.125rem */
+  border-radius: 100%;
   background: linear-gradient(135deg, #D4AF37, #F4E9A1);
   padding: 0.1875rem;
   display: flex;
@@ -219,14 +244,14 @@ const handleAdminDashboardClose = () => {
 .logo-image {
   width: 100%;
   height: 100%;
-  border-radius: 50%;
+  border-radius: 400%;
   object-fit: cover;
   background: white;
 }
 
 .logo-fallback {
   display: none;
-  font-size: 1.5rem;
+  font-size: 1.75rem;  /* Increased from 1.5rem */
   color: #8B4513;
   align-items: center;
   justify-content: center;
@@ -238,7 +263,7 @@ const handleAdminDashboardClose = () => {
 
 .nav-logo h2 {
   color: #fff;
-  font-size: clamp(1.125rem, 2.5vw, 1.5rem);
+  font-size: clamp(1.25rem, 2.8vw, 1.75rem);  /* Increased from 1.125rem, 2.5vw, 1.5rem */
   font-weight: bold;
   margin: 0;
   white-space: nowrap;
@@ -315,12 +340,12 @@ const handleAdminDashboardClose = () => {
   }
   
   .logo-frame {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 3rem;  /* Increased from 2.5rem */
+    height: 3rem;  /* Increased from 2.5rem */
   }
   
   .logo-fallback {
-    font-size: 1.2rem;
+    font-size: 1.4rem;  /* Increased from 1.2rem */
   }
   
   .nav-logo h2 {
@@ -363,21 +388,21 @@ const handleAdminDashboardClose = () => {
 }
 
 .auth-btn {
-  background: #6f42c1;
+  background: #bd7d52;
   color: white;
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 1.25rem;
+  padding: 0.75rem 1.5rem;  /* Increased from 0.5rem 1rem */
+  border-radius: 1.5rem;  /* Increased from 1.25rem */
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;  /* Increased from 500 */
   transition: all 0.3s ease;
-  font-size: clamp(0.8rem, 2vw, 0.9rem);
-  white-space: nowrap;
+  font-size: clamp(0.9rem, 2.2vw, 1rem);  /* Increased from 0.8rem, 2vw, 0.9rem */
+  white-space: nowrap;  
   min-width: fit-content;
 }
 
 .auth-btn:hover {
-  background: #5a32a3;
+  background: #c47c4c;
   transform: translateY(-1px);
 }
 
@@ -399,14 +424,45 @@ const handleAdminDashboardClose = () => {
   background: #218838;
 }
 
+.auth-btn.verification-needed {
+  background: #ffc107;
+  color: #333;
+  position: relative;
+}
+
+.auth-btn.verification-needed:hover {
+  background: #e0a800;
+}
+
+.auth-btn.verification-needed::before {
+  content: '⚠️';
+  margin-right: 0.5rem;
+}
+
+.auth-btn.limited-access {
+  background: #ffc107;
+  color: #856404;
+  border: 1px solid #ffc107;
+}
+
+.auth-btn.limited-access:hover {
+  background: #e0a800;
+  border-color: #e0a800;
+}
+
+.auth-btn.limited-access::before {
+  content: '⚠️';
+  margin-right: 0.5rem;
+}
+
 @media (max-width: 48rem) {
   .auth-btn {
     background: transparent;
     color: #fff;
-    border: 0.125rem solid #6f42c1;
-    padding: 0.7rem 1.5rem;
-    width: 12.5rem;
-    font-size: clamp(0.8rem, 3vw, 1rem);
+    border: 0.15rem solid #6f42c1;  /* Slightly thicker border */
+    padding: 0.85rem 1.75rem;  /* Increased from 0.7rem 1.5rem */
+    width: 14rem;  /* Increased from 12.5rem */
+    font-size: clamp(0.9rem, 3.2vw, 1.1rem);  /* Increased from 0.8rem, 3vw, 1rem */
   }
   
   .auth-btn:hover {

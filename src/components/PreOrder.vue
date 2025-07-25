@@ -11,6 +11,15 @@
         >&times;</button>
       </div>
       
+      <!-- Email verification warning -->
+      <div v-if="!isEmailVerified" class="verification-warning">
+        <div class="warning-icon">⚠️</div>
+        <div class="warning-content">
+          <h4>Email Verification Required</h4>
+          <p>Please verify your email address before placing an order. Check your inbox for a verification email.</p>
+        </div>
+      </div>
+      
       <div v-if="step === 1" class="menu-selection">
         <h3>Select Items</h3>
         <div v-if="menuItems.length === 0" class="loading">Loading menu...</div>
@@ -122,8 +131,13 @@
           
           <div class="form-actions">
             <button type="button" @click="step = 1" class="back-btn">Back to Menu</button>
-            <button type="submit" :disabled="isSubmitting" class="submit-btn">
-              {{ isSubmitting ? 'Placing Order...' : 'Place Pre-Order' }}
+            <button 
+              type="submit" 
+              :disabled="isSubmitting || !isEmailVerified" 
+              class="submit-btn"
+              :class="{ 'disabled': !isEmailVerified }"
+            >
+              {{ !isEmailVerified ? 'Email Verification Required' : (isSubmitting ? 'Placing Order...' : 'Place Pre-Order') }}
             </button>
           </div>
         </form>
@@ -140,6 +154,11 @@ import { getMenuItems, createPreOrder } from '../firebase/services'
 const emit = defineEmits(['close', 'success', 'minimize'])
 
 const { customerAuthState } = useCustomerAuth()
+
+// Check if user's email is verified
+const isEmailVerified = computed(() => {
+  return customerAuthState.isEmailVerified
+})
 
 const step = ref(1)
 const menuItems = ref<any[]>([])
@@ -226,6 +245,12 @@ const loadMenuItems = async () => {
 const submitPreOrder = async () => {
   error.value = ''
   success.value = ''
+  
+  // Check if user's email is verified before allowing order
+  if (!isEmailVerified.value) {
+    error.value = 'Please verify your email address before placing an order. Check your inbox for a verification email.'
+    return
+  }
   
   if (!pickupDetails.date || !pickupDetails.time) {
     error.value = 'Please select pickup date and time'
@@ -408,6 +433,36 @@ onMounted(() => {
 .close-btn:hover {
   background: #f0f0f0;
   color: #333;
+}
+
+/* Email verification warning */
+.verification-warning {
+  display: flex;
+  align-items: center;
+  background: #fff3cd;
+  border: 1px solid #f0ad4e;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  color: #856404;
+}
+
+.warning-icon {
+  font-size: 1.5rem;
+  margin-right: 1rem;
+  flex-shrink: 0;
+}
+
+.warning-content h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  color: #856404;
+}
+
+.warning-content p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 .menu-categories {
@@ -668,6 +723,12 @@ onMounted(() => {
 .submit-btn:disabled {
   background: #ccc;
   cursor: not-allowed;
+}
+
+.submit-btn.disabled {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
 }
 
 .loading {

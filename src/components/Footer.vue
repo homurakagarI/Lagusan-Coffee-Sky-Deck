@@ -3,9 +3,15 @@
     <div class="container">
       <div class="footer-content">
         <div class="footer-section">
-          <h3>Lagusan Coffee Sky Deck</h3>
-          <p>Elevating your coffee experience to new heights with premium brews and breathtaking views.</p>
-          <div class="social-links">
+          <h3>{{ contactInfo?.businessName || 'Lagusan Coffee Sky Deck' }}</h3>
+          <p>{{ contactInfo?.description || 'Elevating your coffee experience to new heights with premium brews and breathtaking views.' }}</p>
+          <div class="social-links" v-if="contactInfo?.socialMedia">
+            <a v-if="contactInfo.socialMedia.facebook" :href="contactInfo.socialMedia.facebook" target="_blank" class="social-link">📘</a>
+            <a v-if="contactInfo.socialMedia.instagram" :href="contactInfo.socialMedia.instagram" target="_blank" class="social-link">📷</a>
+            <a v-if="contactInfo.socialMedia.twitter" :href="contactInfo.socialMedia.twitter" target="_blank" class="social-link">🐦</a>
+            <a v-if="contactInfo.website" :href="contactInfo.website" target="_blank" class="social-link">🌐</a>
+          </div>
+          <div class="social-links" v-else>
             <a href="#" class="social-link">📘</a>
             <a href="#" class="social-link">📷</a>
             <a href="#" class="social-link">🐦</a>
@@ -25,7 +31,13 @@
         
         <div class="footer-section">
           <h4>Opening Hours</h4>
-          <div class="hours">
+          <div class="hours" v-if="contactInfo && contactInfo.openingTime && contactInfo.closingTime">
+            <div class="hour-item">
+              <span>Opening Hours</span>
+              <span>{{ contactInfo.openingTime }} - {{ contactInfo.closingTime }}</span>
+            </div>
+          </div>
+          <div class="hours" v-else>
             <div class="hour-item">
               <span>Mon - Fri</span>
               <span>6:00 AM - 10:00 PM</span>
@@ -44,15 +56,20 @@
         <div class="footer-section">
           <h4>Contact Info</h4>
           <div class="contact-info">
-            <p>📍 Sky Tower, 42nd Floor<br>Downtown Business District</p>
-            <p>📞 (555) 123-4567</p>
-            <p>✉️ hello@lagusanskydeck.com</p>
+            <p v-if="contactInfo?.address">📍 {{ contactInfo.address }}</p>
+            <p v-else>📍 Sky Tower, 42nd Floor<br>Downtown Business District</p>
+            
+            <p v-if="contactInfo?.phone">📞 {{ contactInfo.phone }}</p>
+            <p v-else>📞 (555) 123-4567</p>
+            
+            <p v-if="contactInfo?.email">✉️ {{ contactInfo.email }}</p>
+            <p v-else>✉️ hello@lagusanskydeck.com</p>
           </div>
         </div>
       </div>
       
       <div class="footer-bottom">
-        <p>&copy; {{ currentYear }} Lagusan Coffee Sky Deck. All rights reserved.</p>
+        <p>&copy; {{ currentYear }} {{ contactInfo?.businessName || 'Lagusan Coffee Sky Deck' }}. All rights reserved.</p>
         <p>Crafted with ❤️ for coffee lovers</p>
       </div>
     </div>
@@ -60,9 +77,22 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
+import { getContactInfo } from '../firebase/services'
 
 const currentYear = computed(() => new Date().getFullYear())
+const contactInfo = ref<any>(null)
+
+onMounted(async () => {
+  try {
+    const result = await getContactInfo()
+    if (result.success && result.contactInfo) {
+      contactInfo.value = result.contactInfo
+    }
+  } catch (error) {
+    console.error('Error fetching contact info for footer:', error)
+  }
+})
 </script>
 
 <style scoped>
