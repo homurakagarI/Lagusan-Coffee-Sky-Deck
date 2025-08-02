@@ -151,3 +151,66 @@ body {
   background: var(--secondary-color);
   color: var(--text-dark);
 }
+
+/* Global Image Quality Enhancement */
+img {
+  /* High quality image rendering */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  image-rendering: high-quality;
+  
+  /* Performance optimizations */
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  
+  /* Smooth loading */
+  -webkit-transition: opacity 0.3s ease;
+  transition: opacity 0.3s ease;
+  
+  /* Prevent image distortion */
+  max-width: 100%;
+  height: auto;
+}
+
+/* Background image optimization */
+.hero,
+.about-image,
+.featured-image,
+[style*="background-image"] {
+  /* Force GPU acceleration for smoother rendering */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  
+  /* Optimize background image rendering */
+  background-attachment: scroll;
+  will-change: transform;
+}
+
+/* High-DPI display optimization */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  img {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+
+/* Mobile image optimization */
+@media (max-width: 768px) {
+  img {
+    /* Optimize for mobile rendering */
+    image-rendering: auto;
+    -webkit-optimize-contrast: auto;
+  }
+  
+  .hero,
+  [style*="background-attachment: fixed"] {
+    /* Fix background attachment on mobile for better performance */
+    background-attachment: scroll !important;
+  }
+}

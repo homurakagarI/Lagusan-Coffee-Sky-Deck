@@ -18,7 +18,11 @@
             >
               <div class="feature-icon" v-if="!feature.imageUrl">{{ feature.icon }}</div>
               <div class="feature-image" v-else>
-                <img :src="feature.imageUrl" :alt="feature.title" />
+                <OptimizedImage 
+                  :src="feature.imageUrl" 
+                  :alt="feature.title"
+                  :lazy-load="true"
+                />
               </div>
               <h3>{{ feature.title }}</h3>
               <p>{{ feature.description }}</p>
@@ -30,9 +34,10 @@
             v-if="aboutContent && aboutContent.featuredImageUrl" 
             class="featured-image"
           >
-            <img 
+            <OptimizedImage 
               :src="aboutContent.featuredImageUrl" 
               alt="About Lagusan Coffee Sky Deck"
+              :lazy-load="false"
             />
           </div>
           <div v-else class="image-placeholder">
@@ -48,6 +53,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { getContent } from '../firebase/services'
+import OptimizedImage from './OptimizedImage.vue'
 
 const aboutContent = ref<any>(null)
 
@@ -160,6 +166,12 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* Enhanced image quality */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: high-quality;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 .feature h3 {
@@ -191,6 +203,12 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* Enhanced image quality */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: high-quality;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 .image-placeholder {

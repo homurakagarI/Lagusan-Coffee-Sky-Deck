@@ -268,7 +268,6 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useCustomerAuth } from '../stores/customer-auth'
-import { useAuth } from '../stores/auth'
 
 interface Props {
   showRegisterFirst?: boolean
@@ -282,7 +281,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits(['close', 'success'])
 
-// Import both auth stores to handle both customer and admin authentication
+// Only use customer auth store for customer authentication
 const { register, login, resendVerification } = useCustomerAuth()
 
 const isLogin = ref(true)
@@ -330,20 +329,7 @@ const handleSubmit = async () => {
   try {
     let result: any
     if (isLogin.value) {
-      // First try admin login which doesn't require email verification
-      const adminResult = await useAuth().login(form.email, form.password)
-      
-      // If admin login succeeds, return success immediately
-      if (adminResult.success) {
-        success.value = 'Admin login successful!'
-        setTimeout(() => {
-          emit('success')
-          closeModal()
-        }, 1500)
-        return
-      }
-      
-      // If admin login fails, try customer login which does have verification
+      // Customer login only
       result = await login(form.email, form.password)
       
       if (!result.success && result.needsVerification) {
@@ -402,7 +388,13 @@ const handleResendVerification = async () => {
 }
 
 const getErrorMessage = (error: any) => {
-  if (!error?.code) return error?.message || 'An error occurred'
+  if (!error?.code) {
+    // Check for custom error messages
+    if (error?.accountDeactivated) {
+      return 'Your account has been deactivated by an administrator. Please contact customer support for assistance.'
+    }
+    return error?.message || 'An error occurred'
+  }
   
   switch (error.code) {
     case 'auth/user-not-found':

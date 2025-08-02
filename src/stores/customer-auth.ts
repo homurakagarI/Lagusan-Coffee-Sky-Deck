@@ -28,6 +28,7 @@ onAuthChange(async (user) => {
   if (user) {
     // Check if user is customer
     const roleResult = await getUserRole(user.uid)
+    
     if (roleResult.success && roleResult.isCustomer && roleResult.role === 'customer') {
       // Check email verification status
       if (!user.emailVerified) {
@@ -39,17 +40,42 @@ onAuthChange(async (user) => {
         customerAuthState.customerProfile = null
         localStorage.removeItem('isCustomer')
       } else {
-        // User is verified - allow access
-        customerAuthState.user = user
-        customerAuthState.isAuthenticated = true
-        customerAuthState.isEmailVerified = true
-        customerAuthState.needsEmailVerification = false
-        localStorage.setItem('isCustomer', 'true')
-        
-        // Load customer profile
+        // User is verified - check if account is active
+        // Load customer profile first to check isActive status
         const profileResult = await getCustomerProfile(user.uid)
-        if (profileResult.success) {
-          customerAuthState.customerProfile = profileResult.customer
+        
+        if (profileResult.success && profileResult.customer) {
+          // Check if account is active (default to true if not set)
+          const isActive = profileResult.customer.isActive !== false
+          
+          if (isActive) {
+            // Account is active - allow access
+            customerAuthState.user = user
+            customerAuthState.isAuthenticated = true
+            customerAuthState.isEmailVerified = true
+            customerAuthState.needsEmailVerification = false
+            customerAuthState.customerProfile = profileResult.customer
+            localStorage.setItem('isCustomer', 'true')
+          } else {
+            // Account is deactivated by admin - block access
+            customerAuthState.user = user
+            customerAuthState.isAuthenticated = false
+            customerAuthState.isEmailVerified = true
+            customerAuthState.needsEmailVerification = false
+            customerAuthState.customerProfile = profileResult.customer
+            localStorage.removeItem('isCustomer')
+            
+            // Force logout deactivated user
+            await logoutCustomer()
+          }
+        } else {
+          // Could not load profile - block access
+          customerAuthState.user = user
+          customerAuthState.isAuthenticated = false
+          customerAuthState.isEmailVerified = true
+          customerAuthState.needsEmailVerification = false
+          customerAuthState.customerProfile = null
+          localStorage.removeItem('isCustomer')
         }
       }
     } else {

@@ -3,6 +3,14 @@
     <div class="management-header">
       <h2>Customer Management</h2>
       <p>Manage customer accounts, view profiles, and monitor activity</p>
+      
+      <!-- Status Update Messages -->
+      <div v-if="statusUpdateSuccess" class="status-message success-message">
+        {{ statusUpdateSuccess }}
+      </div>
+      <div v-if="statusUpdateError" class="status-message error-message">
+        {{ statusUpdateError }}
+      </div>
     </div>
 
     <!-- Customer Stats -->
@@ -59,6 +67,7 @@
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
           <option value="new">New</option>
+          <option value="deactivated">Deactivated (Admin)</option>
         </select>
         
         <select v-model="sortBy" class="filter-select">
@@ -176,10 +185,19 @@
             <button 
               @click="toggleCustomerStatus(customer)" 
               class="action-btn status-btn"
-              :class="customer.isActive ? 'deactivate' : 'activate'"
-              :title="customer.isActive ? 'Deactivate' : 'Activate'"
+              :class="customer.isActive === false ? 'activate' : 'deactivate'"
+              :title="customer.isActive === false ? 'Activate Account' : 'Deactivate Account'"
+              :disabled="isUpdatingStatus"
             >
-              {{ customer.isActive ? '🚫' : '✅' }}
+              {{ customer.isActive === false ? '✅' : '🚫' }}
+            </button>
+            <button 
+              @click="deleteCustomerAccount(customer)" 
+              class="action-btn delete-btn"
+              title="Delete Account"
+              :disabled="isUpdatingStatus"
+            >
+              🗑️
             </button>
           </div>
         </div>
@@ -354,8 +372,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { db } from '../firebase/config'
+import { db, auth } from '../firebase/config'
 import { collection, getDocs, query, orderBy } from 'firebase/firestore'
+import { updateCustomerStatus, deleteCustomerAccount as deleteCustomerAccountService, testFirebaseConnection, checkFirebaseStatus, manuallyCreateAdminProfile, verifyAdminAccount, forceAdminVerification, quickAdminSetup, completeAdminVerificationGuide, emergencyAdminBypass } from '../firebase/services'
 
 // Reactive data
 const customers = ref<any[]>([])
@@ -368,6 +387,9 @@ const itemsPerPage = 10
 const selectedCustomer = ref<any>(null)
 const showCustomerModal = ref(false)
 const activeTab = ref('info')
+const isUpdatingStatus = ref(false)
+const statusUpdateError = ref('')
+const statusUpdateSuccess = ref('')
 
 // Computed properties
 const totalCustomers = computed(() => customers.value.length)
@@ -406,6 +428,9 @@ const filteredCustomers = computed(() => {
   // Status filter
   if (statusFilter.value) {
     result = result.filter(customer => {
+      if (statusFilter.value === 'deactivated') {
+        return customer.isActive === false
+      }
       const status = getCustomerStatus(customer)
       return status === statusFilter.value
     })
@@ -443,11 +468,57 @@ const loadCustomers = async () => {
       id: doc.id,
       ...doc.data()
     }))
+    
+    console.log('📊 Loaded customers:', customers.value.length);
   } catch (error) {
     console.error('Error loading customers:', error)
   } finally {
     isLoading.value = false
   }
+}
+
+// Add diagnostic functions for debugging
+const diagnoseFBConnection = async () => {
+  console.log('🔍 === FIREBASE DIAGNOSTICS ===');
+  checkFirebaseStatus();
+  
+  const connectionTest = await testFirebaseConnection();
+  console.log('🔍 Connection test result:', connectionTest);
+  
+  return connectionTest;
+}
+
+// Add this test function for debugging
+const testDeleteFunction = async () => {
+  try {
+    console.log('🧪 Testing delete function...');
+    console.log('🔐 Current user:', auth.currentUser?.email);
+    console.log('🔐 Auth state:', !!auth.currentUser);
+    
+    if (!auth.currentUser) {
+      console.error('❌ No user logged in');
+      return;
+    }
+    
+    // Test with a dummy customer ID to see if the function is callable
+    const testResult = await deleteCustomerAccountService('test-id', 'Testing deletion function');
+    console.log('🧪 Test result:', testResult);
+  } catch (error) {
+    console.error('🧪 Test error:', error);
+  }
+}
+
+// Make test functions available globally for console testing
+if (typeof window !== 'undefined') {
+  (window as any).testDeleteFunction = testDeleteFunction;
+  (window as any).diagnoseFBConnection = diagnoseFBConnection;
+  (window as any).checkFirebaseStatus = checkFirebaseStatus;
+  (window as any).manuallyCreateAdminProfile = manuallyCreateAdminProfile;
+  (window as any).verifyAdminAccount = verifyAdminAccount;
+  (window as any).forceAdminVerification = forceAdminVerification;
+  (window as any).quickAdminSetup = quickAdminSetup;
+  (window as any).adminHelp = completeAdminVerificationGuide;
+  (window as any).emergencyAdminBypass = emergencyAdminBypass;
 }
 
 const searchCustomers = () => {
@@ -495,6 +566,10 @@ const formatLastSeen = (timestamp: any) => {
 }
 
 const getCustomerStatus = (customer: any) => {
+  // First check if admin has set the account as inactive
+  if (customer.isActive === false) return 'deactivated'
+  
+  // If account is active (or not set), check login activity
   if (!customer.lastLoginAt) return 'new'
   
   const lastLogin = customer.lastLoginAt.toDate ? customer.lastLoginAt.toDate() : new Date(customer.lastLoginAt)
@@ -505,6 +580,9 @@ const getCustomerStatus = (customer: any) => {
 }
 
 const getCustomerStatusText = (customer: any) => {
+  // First check if admin has deactivated the account
+  if (customer.isActive === false) return 'Deactivated'
+  
   const status = getCustomerStatus(customer)
   switch (status) {
     case 'active': return 'Active'
@@ -544,8 +622,177 @@ const viewCustomerOrders = (customer: any) => {
 }
 
 const toggleCustomerStatus = async (customer: any) => {
-  // Implement status toggle
-  console.log('Toggle status for:', customer)
+  try {
+    isUpdatingStatus.value = true
+    statusUpdateError.value = ''
+    statusUpdateSuccess.value = ''
+    
+    const newStatus = customer.isActive === false ? true : false
+    const reason = newStatus ? 'Account reactivated by admin' : 'Account deactivated by admin'
+    
+    // Confirm the action with admin
+    const action = newStatus ? 'activate' : 'deactivate'
+    const confirmed = confirm(
+      `Are you sure you want to ${action} ${customer.fullName || customer.email}'s account?\n\n` +
+      `This will ${newStatus ? 'allow' : 'prevent'} the customer from logging into their account.`
+    )
+    
+    if (!confirmed) {
+      isUpdatingStatus.value = false
+      return
+    }
+    
+    // Update customer status in Firebase
+    const result = await updateCustomerStatus(customer.id, newStatus, reason)
+    
+    if (result.success) {
+      // Update local customer data
+      const customerIndex = customers.value.findIndex(c => c.id === customer.id)
+      if (customerIndex !== -1) {
+        customers.value[customerIndex].isActive = newStatus
+        customers.value[customerIndex].statusUpdatedAt = new Date()
+        customers.value[customerIndex].statusUpdatedBy = 'admin'
+        customers.value[customerIndex].statusReason = reason
+      }
+      
+      statusUpdateSuccess.value = `Customer account ${action}d successfully!`
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        statusUpdateSuccess.value = ''
+      }, 3000)
+      
+    } else {
+      statusUpdateError.value = `Failed to ${action} customer account. Please try again.`
+    }
+    
+  } catch (error) {
+    console.error('Error updating customer status:', error)
+    statusUpdateError.value = 'An error occurred while updating customer status.'
+  } finally {
+    isUpdatingStatus.value = false
+  }
+}
+
+const deleteCustomerAccount = async (customer: any) => {
+  try {
+    isUpdatingStatus.value = true
+    statusUpdateError.value = ''
+    statusUpdateSuccess.value = ''
+    
+    console.log('🔐 Checking admin authentication...');
+    console.log('🔐 Current user:', auth.currentUser?.email);
+    console.log('🔐 Current user UID:', auth.currentUser?.uid);
+    
+    if (!auth.currentUser) {
+      statusUpdateError.value = 'You must be logged in as an admin to delete customer accounts.'
+      isUpdatingStatus.value = false
+      return
+    }
+    
+    if (auth.currentUser.email !== 'admin@lagusan.com') {
+      statusUpdateError.value = 'Only the main admin can delete customer accounts.'
+      isUpdatingStatus.value = false
+      return
+    }
+    
+    // Confirm the action with admin - multiple prompts for safety
+    const customerName = customer.fullName || customer.email
+    
+    console.log('🗑️ Starting deletion process for:', customerName, '(' + customer.email + ')');
+    
+    const firstConfirm = confirm(
+      `⚠️ WARNING: PERMANENT ACTION ⚠️\n\n` +
+      `You are about to PERMANENTLY DELETE the account for:\n` +
+      `${customerName} (${customer.email})\n\n` +
+      `This action will:\n` +
+      `• Delete the customer profile\n` +
+      `• Delete all customer preferences\n` +
+      `• Delete all pre-orders\n` +
+      `• Cannot be undone\n\n` +
+      `Are you sure you want to continue?`
+    )
+    
+    if (!firstConfirm) {
+      console.log('🗑️ First confirmation cancelled');
+      isUpdatingStatus.value = false
+      return
+    }
+    
+    // Second confirmation with typing requirement
+    const secondConfirm = prompt(
+      `FINAL CONFIRMATION\n\n` +
+      `To permanently delete ${customerName}'s account, please type:\n` +
+      `DELETE ${customer.email}\n\n` +
+      `Type exactly as shown above:`
+    )
+    
+    const expectedText = `DELETE ${customer.email}`
+    if (secondConfirm !== expectedText) {
+      console.log('🗑️ Second confirmation failed. Expected:', expectedText, 'Got:', secondConfirm);
+      statusUpdateError.value = 'Account deletion cancelled. Text did not match exactly.'
+      isUpdatingStatus.value = false
+      return
+    }
+    
+    // Ask for deletion reason
+    const reason = prompt(
+      'Please provide a reason for deleting this customer account:\n' +
+      '(This will be logged for audit purposes)'
+    )
+    
+    if (!reason || reason.trim().length === 0) {
+      console.log('🗑️ No reason provided');
+      statusUpdateError.value = 'Deletion reason is required.'
+      isUpdatingStatus.value = false
+      return
+    }
+    
+    // Perform the deletion
+    console.log('🗑️ Attempting to delete customer:', customer.id, customer.email);
+    const result = await deleteCustomerAccountService(customer.id, reason.trim())
+    
+    console.log('🗑️ Deletion result:', result);
+    
+    if (result.success) {
+      // Remove customer from local list
+      const customerIndex = customers.value.findIndex(c => c.id === customer.id)
+      console.log('🗑️ Customer index in local list:', customerIndex);
+      
+      if (customerIndex !== -1) {
+        customers.value.splice(customerIndex, 1)
+        console.log('✅ Removed customer from local list. New count:', customers.value.length);
+      }
+      
+      statusUpdateSuccess.value = `Customer account permanently deleted: ${customerName}`
+      
+      // Also reload the customer list from Firestore to ensure sync
+      setTimeout(async () => {
+        console.log('🔄 Reloading customer list to ensure sync...');
+        await loadCustomers();
+      }, 1000);
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => {
+        statusUpdateSuccess.value = ''
+      }, 5000)
+      
+      // Close modal if customer was being viewed
+      if (selectedCustomer.value?.id === customer.id) {
+        closeCustomerModal()
+      }
+      
+    } else {
+      console.error('❌ Customer deletion failed:', result.error);
+      statusUpdateError.value = `Failed to delete customer account: ${result.error}`
+    }
+    
+  } catch (error) {
+    console.error('Error deleting customer account:', error)
+    statusUpdateError.value = 'An error occurred while deleting customer account.'
+  } finally {
+    isUpdatingStatus.value = false
+  }
 }
 
 const closeCustomerModal = () => {
@@ -586,6 +833,27 @@ onMounted(() => {
   margin: 0;
   color: #666;
   font-size: 1.1rem;
+}
+
+/* Status Messages */
+.status-message {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.success-message {
+  background: rgba(40, 167, 69, 0.1);
+  color: #28a745;
+  border: 1px solid rgba(40, 167, 69, 0.2);
+}
+
+.error-message {
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+  border: 1px solid rgba(220, 53, 69, 0.2);
 }
 
 /* Customer Stats */
@@ -775,7 +1043,7 @@ onMounted(() => {
 
 .table-header {
   display: grid;
-  grid-template-columns: 2fr 1.5fr 1.5fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
   background: #f8f9fa;
   border-bottom: 1px solid #e9ecef;
 }
@@ -789,7 +1057,7 @@ onMounted(() => {
 
 .table-row {
   display: grid;
-  grid-template-columns: 2fr 1.5fr 1.5fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1.5fr 1.5fr 1fr 1fr 1.5fr;
   border-bottom: 1px solid #f0f0f0;
   transition: background 0.2s ease;
 }
@@ -890,6 +1158,12 @@ onMounted(() => {
   color: #007bff;
 }
 
+.status-badge.deactivated {
+  background: rgba(108, 117, 125, 0.1);
+  color: #6c757d;
+  font-weight: 600;
+}
+
 .actions {
   gap: 0.5rem;
 }
@@ -956,6 +1230,27 @@ onMounted(() => {
 .status-btn.deactivate:hover {
   background: #dc3545;
   color: white;
+}
+
+.delete-btn {
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+  border: 2px solid rgba(220, 53, 69, 0.2);
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: #dc3545;
+  color: white;
+  border-color: #dc3545;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+.delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 /* Pagination */

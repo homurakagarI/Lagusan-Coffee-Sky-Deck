@@ -26,6 +26,7 @@
             <li><a href="#about">About Us</a></li>
             <li><a href="#menu">Menu</a></li>
             <li><a href="#contact">Contact</a></li>
+
           </ul>
         </div>
         
@@ -176,6 +177,17 @@ onMounted(async () => {
 
 .footer-links a:hover {
   color: #D4AF37;
+}
+
+.footer-links .admin-link {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  font-style: italic;
+}
+
+.footer-links .admin-link:hover {
+  opacity: 1;
+  color: #8B4513;
 }
 
 .hours {

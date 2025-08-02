@@ -5,6 +5,17 @@
     <link rel="icon" type="image/svg+xml" href="\Lagusanlogo.jpg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Lagusan Coffee Sky Deck</title>
+    
+    <!-- Permissions Policy to prevent external script violations -->
+    <meta http-equiv="Permissions-Policy" content="unload=()">
+    
+    <!-- Only preload the hero background image that's immediately visible -->
+    <link rel="preload" as="image" href="/sky-deck-background.jpg" fetchpriority="high" />
+    
+    <!-- DNS prefetch for external resources (no preload warnings) -->
+    <link rel="dns-prefetch" href="//images.unsplash.com" />
+    <link rel="dns-prefetch" href="//firebasestorage.googleapis.com" />
+    <link rel="dns-prefetch" href="//maps.google.com" />
   </head>
   <body>
     <div id="app"></div>

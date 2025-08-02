@@ -35,6 +35,66 @@
             </div>
           </div>
           
+          <!-- Gallery Images Section -->
+          <div class="gallery-images-section">
+            <h3>Gallery Images for Homepage ({{ form.galleryImages?.length || 0 }}/5)</h3>
+            <p class="gallery-description">Upload up to 5 images for the homepage gallery slider</p>
+            
+            <div class="gallery-grid">
+              <div 
+                v-for="(image, index) in displayGallerySlots" 
+                :key="index" 
+                class="gallery-slot"
+                :class="{ 'has-image': image.url, 'empty-slot': !image.url }"
+              >
+                <div v-if="image.url" class="gallery-image-preview">
+                  <img :src="image.url" :alt="`Gallery Image ${index + 1}`" />
+                  <div class="gallery-image-overlay">
+                    <button 
+                      type="button" 
+                      @click="removeGalleryImage(index)" 
+                      class="remove-gallery-btn"
+                      title="Remove Image"
+                    >
+                      🗑️
+                    </button>
+                    <span class="image-number">{{ index + 1 }}</span>
+                  </div>
+                </div>
+                <div v-else class="gallery-upload-placeholder" @click="() => galleryImageInputs[index]?.click()">
+                  <input 
+                    type="file" 
+                    :ref="(el) => setGalleryImageRef(el as HTMLInputElement, index)"
+                    @change="(event) => handleGalleryImageUpload(event, index)"
+                    accept="image/*"
+                    style="display: none;"
+                  />
+                  <span class="upload-icon">🖼️</span>
+                  <p>Upload Image {{ index + 1 }}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div class="gallery-controls">
+              <button 
+                type="button" 
+                @click="addGalleryImage" 
+                :disabled="(form.galleryImages?.length || 0) >= 5"
+                class="add-gallery-btn"
+              >
+                ➕ Add Gallery Image
+              </button>
+              <button 
+                type="button" 
+                @click="clearAllGalleryImages" 
+                :disabled="!form.galleryImages?.length"
+                class="clear-gallery-btn"
+              >
+                🗑️ Clear All Images
+              </button>
+            </div>
+          </div>
+          
           <div class="form-group">
             <label for="title">Hero Title</label>
             <input 
@@ -221,10 +281,18 @@ const error = ref('')
 
 // Create refs for feature image inputs
 const featureImageInputs = ref<Record<number, HTMLInputElement>>({})
+// Create refs for gallery image inputs
+const galleryImageInputs = ref<Record<number, HTMLInputElement>>({})
 
 const setFeatureImageRef = (el: HTMLInputElement | null, index: number) => {
   if (el) {
     featureImageInputs.value[index] = el
+  }
+}
+
+const setGalleryImageRef = (el: HTMLInputElement | null, index: number) => {
+  if (el) {
+    galleryImageInputs.value[index] = el
   }
 }
 
@@ -243,6 +311,7 @@ const form = reactive({
   primaryButtonText: '',
   secondaryButtonText: '',
   featuredImageUrl: '',
+  galleryImages: [] as string[],
   
   // About fields
   description1: '',
@@ -252,6 +321,18 @@ const form = reactive({
     { imageUrl: '', title: 'Sky Deck Views', description: 'Breathtaking panoramic views of the city skyline' },
     { imageUrl: '', title: 'Perfect Ambiance', description: 'Modern design meets comfort in our elevated space' }
   ]
+})
+
+// Computed property for gallery display slots (always show 5 slots)
+const displayGallerySlots = computed(() => {
+  const slots = []
+  for (let i = 0; i < 5; i++) {
+    slots.push({
+      url: form.galleryImages[i] || '',
+      index: i
+    })
+  }
+  return slots
 })
 
 const loadContent = async () => {
@@ -269,6 +350,7 @@ const loadContent = async () => {
         form.subtitle = 'Experience the perfect blend of premium coffee and breathtaking views'
         form.primaryButtonText = 'View Our Menu'
         form.secondaryButtonText = 'Visit Us'
+        form.galleryImages = []
       } else if (props.section === 'about') {
         form.title = 'About Lagusan Coffee Sky Deck'
         form.description1 = 'Nestled high above the bustling city, Lagusan Coffee Sky Deck offers an unparalleled coffee experience where exceptional brews meet breathtaking panoramic views. Our carefully curated selection of premium coffee beans from around the world is expertly roasted to perfection.'
@@ -345,6 +427,61 @@ const removeFeatureImage = (index: number) => {
   form.features[index].imageUrl = ''
 }
 
+// Gallery image management methods
+const handleGalleryImageUpload = async (event: Event, index: number) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  
+  if (!file) return
+  
+  try {
+    isSubmitting.value = true
+    console.log('Uploading gallery image:', file.name)
+    
+    const result = await uploadFile(file, 'gallery-images')
+    
+    if (result.success && result.url) {
+      // Ensure galleryImages array has enough slots
+      while (form.galleryImages.length <= index) {
+        form.galleryImages.push('')
+      }
+      form.galleryImages[index] = result.url
+      console.log('Gallery image uploaded successfully:', result.url)
+      error.value = '' // Clear any previous errors
+    } else {
+      error.value = 'Failed to upload gallery image. Please try again.'
+    }
+  } catch (err) {
+    console.error('Error uploading gallery image:', err)
+    error.value = 'Error uploading gallery image. Please try again.'
+  } finally {
+    isSubmitting.value = false
+    // Reset the input
+    target.value = ''
+  }
+}
+
+const removeGalleryImage = (index: number) => {
+  if (form.galleryImages[index]) {
+    form.galleryImages[index] = ''
+    // Clean up empty trailing slots
+    while (form.galleryImages.length > 0 && form.galleryImages[form.galleryImages.length - 1] === '') {
+      form.galleryImages.pop()
+    }
+  }
+}
+
+const addGalleryImage = () => {
+  if (form.galleryImages.length < 5) {
+    const nextIndex = form.galleryImages.length
+    galleryImageInputs.value[nextIndex]?.click()
+  }
+}
+
+const clearAllGalleryImages = () => {
+  form.galleryImages = []
+}
+
 const handleSubmit = async () => {
   error.value = ''
   isSubmitting.value = true
@@ -365,7 +502,8 @@ const handleSubmit = async () => {
         subtitle: form.subtitle.trim(),
         primaryButtonText: form.primaryButtonText.trim(),
         secondaryButtonText: form.secondaryButtonText.trim(),
-        featuredImageUrl: form.featuredImageUrl
+        featuredImageUrl: form.featuredImageUrl,
+        galleryImages: form.galleryImages.filter(url => url.trim() !== '') // Remove empty URLs
       }
     } else if (props.section === 'about') {
       contentData = {
@@ -778,6 +916,202 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
+/* Gallery Images Styles */
+.gallery-images-section {
+  margin-top: 2rem;
+  padding: 2rem;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 2px solid #e9ecef;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.gallery-images-section h3 {
+  margin-bottom: 0.5rem;
+  color: #333;
+  font-size: 1.5rem;
+  text-align: center;
+  border-bottom: 3px solid #8B4513;
+  padding-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.gallery-description {
+  text-align: center;
+  color: #666;
+  margin-bottom: 2rem;
+  font-style: italic;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.gallery-slot {
+  aspect-ratio: 16/9;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.gallery-slot.has-image {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.gallery-slot.empty-slot {
+  border: 2px dashed #ddd;
+}
+
+.gallery-image-preview {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.gallery-image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.gallery-image-preview:hover img {
+  transform: scale(1.05);
+}
+
+.gallery-image-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.gallery-image-preview:hover .gallery-image-overlay {
+  opacity: 1;
+}
+
+.remove-gallery-btn {
+  background: #dc3545;
+  color: white;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: all 0.3s ease;
+  margin-right: 0.5rem;
+}
+
+.remove-gallery-btn:hover {
+  background: #c82333;
+  transform: scale(1.1);
+}
+
+.image-number {
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.gallery-upload-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #666;
+  transition: all 0.3s ease;
+  padding: 1rem;
+  text-align: center;
+}
+
+.gallery-upload-placeholder:hover {
+  background: rgba(139, 69, 19, 0.05);
+  color: #8B4513;
+}
+
+.upload-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.gallery-upload-placeholder p {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.gallery-controls {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.add-gallery-btn,
+.clear-gallery-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.add-gallery-btn {
+  background: #28a745;
+  color: white;
+}
+
+.add-gallery-btn:hover:not(:disabled) {
+  background: #218838;
+  transform: translateY(-2px);
+}
+
+.add-gallery-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.clear-gallery-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.clear-gallery-btn:hover:not(:disabled) {
+  background: #c82333;
+  transform: translateY(-2px);
+}
+
+.clear-gallery-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+}
+
 @media (max-width: 768px) {
   .content-editor {
     width: 95%;
@@ -795,6 +1129,20 @@ onMounted(() => {
   
   .feature-image-upload {
     min-height: 120px;
+  }
+  
+  .gallery-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  
+  .gallery-controls {
+    flex-direction: column;
+  }
+  
+  .add-gallery-btn,
+  .clear-gallery-btn {
+    justify-content: center;
   }
 }
 </style>
